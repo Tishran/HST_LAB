@@ -3,7 +3,6 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/read_until.hpp>
 #include <iostream>
-//#include "bytes_funcs.h"
 #include <future>
 #include "calculations.h"
 

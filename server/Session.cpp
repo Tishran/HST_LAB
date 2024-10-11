@@ -1,7 +1,7 @@
 #include <boost/asio/write.hpp>
 #include "Session.h"
 
-// TODO: refactor
+// TODO: refactor, add some logging
 
 
 Session::Session(tcp::socket socket) : socket_(std::move(socket)),
@@ -71,9 +71,28 @@ void Session::read_vectors() {
             while (buffer_.size() >= 4) {
                 vectors_.push_back(bytes_to_int(boost::asio::buffers_begin(buffer_.data())));
                 buffer_.consume(sizeof(int));
+
+                // some logging TODO: come up with better logging strategy
+                if (vectors_.size() == num_vec_ * dim_vec_) {
+                    std::cout << "Received 100%" << std::endl;
+                } else if (vectors_.size() == num_vec_ * dim_vec_ / 4 * 3) {
+                    std::cout << "Received 75%" << std::endl;
+                } else if (vectors_.size() == num_vec_ * dim_vec_ / 4 * 2) {
+                    std::cout << "Received 50%" << std::endl;
+                } else if (vectors_.size() == num_vec_ * dim_vec_ / 4) {
+                    std::cout << "Received 25%" << std::endl;
+                    std::cout << vectors_[0] << std::endl;
+                }
             }
 
             if (vectors_.size() == num_vec_ * dim_vec_) {
+                // TODO: чекнуть костыль ли
+                if (buffer_.size() != 1) {
+                    read_vectors();
+                    return;
+                }
+
+                std::cout << "Starting computation" << std::endl;
                 buffer_.consume(1);
 
                 // sending accept here

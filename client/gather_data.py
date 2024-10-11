@@ -1,35 +1,56 @@
 import argparse
-import random
 import numpy as np
 import subprocess
 import pickle
+import matplotlib.pyplot as plt
+
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument('res_path', type=str, help='Input file name')
-parser.add_argument('times_path', type=str, help='Input file name')
+parser.add_argument('start_num_vectors', type=str)
+parser.add_argument('dim_vectors', type=str)  # it is fixed
+parser.add_argument('step_num_vectors', type=str)
+parser.add_argument('num_experiments', type=str)
+parser.add_argument('plot_name', type=str)
+
 args = parser.parse_args()
-file_path = args.res_path
-times_path = args.res_path
+start_num_vectors = int(args.start_num_vectors)
+dim_vectors = int(args.dim_vectors)
+step_num_vectors = int(args.step_num_vectors)
+num_experiments = int(args.num_experiments)
+plot_name = args.plot_name
 
-MAX_NUM = 1000000
-MAX_DIM = 100000
+calculation_times = dict()  # num vectors to time
 
-calculation_times = dict()
+for i in tqdm(range(num_experiments)):
+    subprocess.run(["python3", "./client/gen_data.py", 'data.npy', f"{start_num_vectors}", f"{dim_vectors}"],
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL) # опасно опасно
+    subprocess.run(["python3", "./client/send_data.py", 'data.npy', 'lengths.npy', '127.0.0.1', '12345'],
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL)
 
-for i in range(20):
-    if i % 10 == 0:
-        print(i)
-    num_vec = random.randint(10, MAX_NUM)
-    dim_vec = 10
-    # dim_vec = random.randint(10, MAX_DIM)
+    lengths = np.load("lengths.npy", mmap_mode='r')
+    calculation_times[start_num_vectors * dim_vectors * 4 / 1024 / 1024] = lengths[-1]
 
-    subprocess.run(["python", "./client/gen_data.py", 'data.npy', f"{num_vec}", f"{dim_vec}"])
-    subprocess.run(["python", "./client/send_data.py", 'data.npy', file_path, '127.0.0.1', '8080'])
+    start_num_vectors += step_num_vectors
 
-    lengths = np.load(file_path)
-    calculation_times[(num_vec, dim_vec)] = lengths[-1]
+print("Experiments finished!")
+print("Saving plot and duration records...")
 
+plt.plot(list(calculation_times.keys()), list(calculation_times.values()),
+         label='time of size',
+         color='blue',
+         linestyle='-')
+plt.title(f'Calculation duration with dim={dim_vectors}')
+plt.ylabel('Duration, mcs')
+plt.xlabel('Data size, MB')
+plt.grid(color = 'gray', linestyle = '--', linewidth = 0.5)
 
-with open('/home/tishran/CLionProjects/HST_LAB_1/times.pkl', 'wb') as fp:
+plt.savefig(f'{plot_name}.png', format='png', dpi=600)
+print('Plot saved')
+
+with open('times.pkl', 'wb') as fp:
     pickle.dump(calculation_times, fp)
-    print('dictionary saved successfully to file')
+    print('Durations records saved successfully to times.pkl')
+

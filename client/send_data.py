@@ -1,14 +1,18 @@
 import gc
 import socket
 import struct
-import time
 import numpy as np
 import argparse
+import time
+
+from tqdm import tqdm
 
 # TODO: fix performance and refactor
 
 DELIMITER = b'\n'
-CHUNK_SIZE = int(1e8)  # optimal value for my machine with linux to run without crushes
+
+# optimal value for my machine with linux to run without crushes, but maybe i dont need this anymore
+CHUNK_SIZE = int(1e7)
 
 
 def main():
@@ -26,34 +30,33 @@ def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((host, port))
 
-        data = np.load(data_path, mmap_mode='r')
-        n, m = data.shape
+        data = np.memmap(data_path, dtype=np.int32, mode='r')
 
-        print("vectors shape: ", data.shape)
-
-        data = data.flatten()
+        n, m = data[0], data[1]
+        print("vectors shape: ", n, m)
+        print(data[2])
 
         print("flattened vectors len: ", len(data))
 
+        print("sending data...")
         s.sendall(struct.pack('<i', 1) + DELIMITER +
                   struct.pack('<ii', *[n, m]) + DELIMITER)
 
-        total_len = n * m
-        for i in range(0, n * m, CHUNK_SIZE):
-            s.sendall(struct.pack(f"<{min(total_len, CHUNK_SIZE)}i",
-                                  *(data[i: i + min(total_len, CHUNK_SIZE)])))
-            total_len -= CHUNK_SIZE
+        for i in tqdm(range(2, len(data), CHUNK_SIZE)):
+            data_chunk = data[i: min(len(data), i + CHUNK_SIZE)].tobytes()
+            s.sendall(data_chunk)
+            del data_chunk
+
         s.sendall(DELIMITER)
 
         del data
         gc.collect()
-        print("Cleared data in python script")
 
         # checking for data accept
         send_res = s.recv(4)
         send_res = struct.unpack('i', send_res)[0]
         if send_res == 2:
-            print("Data received!")
+            print("data sent successfully!")
         else:
             print(send_res)
             raise RuntimeError("Data is not received!")
