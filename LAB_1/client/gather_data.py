@@ -3,8 +3,11 @@ import numpy as np
 import subprocess
 import pickle
 import matplotlib.pyplot as plt
+import os
 
 from tqdm import tqdm
+
+EXPERIMENT_RESULTS_PATH = '../experiment_results'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('start_num_vectors', type=str)
@@ -12,6 +15,7 @@ parser.add_argument('dim_vectors', type=str)  # it is fixed
 parser.add_argument('step_num_vectors', type=str)
 parser.add_argument('num_experiments', type=str)
 parser.add_argument('plot_name', type=str)
+parser.add_argument('pickle_name', type=str)
 
 args = parser.parse_args()
 start_num_vectors = int(args.start_num_vectors)
@@ -19,6 +23,10 @@ dim_vectors = int(args.dim_vectors)
 step_num_vectors = int(args.step_num_vectors)
 num_experiments = int(args.num_experiments)
 plot_name = args.plot_name
+pickle_name = args.pickle_name
+
+plot_name = os.path.join(EXPERIMENT_RESULTS_PATH, plot_name)
+pickle_name = os.path.join(EXPERIMENT_RESULTS_PATH, pickle_name)
 
 calculation_times = dict()  # num vectors to time
 
@@ -48,9 +56,9 @@ plt.xlabel('Data size, MB')
 plt.grid(color = 'gray', linestyle = '--', linewidth = 0.5)
 
 plt.savefig(f'{plot_name}.png', format='png', dpi=600)
-print('Plot saved')
+print(f'Plot saved successfully to {plot_name}.png')
 
-with open('times.pkl', 'wb') as fp:
+with open(f"{pickle_name}.pkl", 'wb') as fp:
     pickle.dump(calculation_times, fp)
-    print('Durations records saved successfully to times.pkl')
+    print(f'Durations records saved successfully to {pickle_name}.pkl')
 

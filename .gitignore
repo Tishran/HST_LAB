@@ -1,6 +1,4 @@
 *.npy
-*.pkl
-*.png
 cmake-build-debug
 .idea
 lab1_plot

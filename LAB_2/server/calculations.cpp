@@ -1,6 +1,10 @@
 #include "calculations.h"
 
 void calculate_lengths(int num_vectors, int dim_vectors, const int *vectors, double* lengths) {
+    omp_set_dynamic(0);
+    omp_set_num_threads(20); // specify as you wish
+
+    #pragma omp parallel for
     for (int curr_idx = 0; curr_idx < (long long) num_vectors * dim_vectors; curr_idx += dim_vectors) {
         long long squared_sum = 0;
         for (int curr_dim = 0; curr_dim < dim_vectors; ++curr_dim) {
