@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-EXPERIMENT_RESULTS_PATH = './experiment_results'
+EXPERIMENT_RESULTS_PATH = '../experiment_results'
 
 def main():
     exp_dir_list = [file_name for file_name in os.listdir(EXPERIMENT_RESULTS_PATH) if file_name.endswith('.pkl')]
@@ -14,7 +14,8 @@ def main():
             plt.plot(np.array(list(calculation_times.keys())),
                      list(calculation_times.values()),
                      label=f"{file_name.split('_')[1]} threads",
-                     linestyle='-')
+                     linestyle='-',
+                     marker='o')
 
     plt.title(f'Calculation duration comparison')
     plt.ylabel('Duration, mcs')

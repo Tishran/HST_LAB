@@ -81,7 +81,6 @@ void Session::read_vectors() {
                     std::cout << "Received 50%" << std::endl;
                 } else if (vectors_.size() == num_vec_ * dim_vec_ / 4) {
                     std::cout << "Received 25%" << std::endl;
-                    std::cout << vectors_[0] << std::endl;
                 }
             }
 

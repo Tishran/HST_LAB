@@ -1,4 +1,6 @@
 *.npy
+*.pkl
 cmake-build-debug
 .idea
 lab1_plot
+__pycache__

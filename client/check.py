@@ -1,6 +1,9 @@
 import numpy as np
-from numpy.ma.testutils import assert_almost_equal
 import argparse
+
+from tqdm import tqdm
+from numpy.ma.testutils import assert_almost_equal
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -14,17 +17,18 @@ def main():
     n = vectors[0]
     m = vectors[1]
 
+    print("Vector shape: ", n, m)
+
     lengths = np.load(output_path)
-    lengths = lengths[:-1]
 
     true_lengths = []
-    #np.array([np.linalg.norm(i) for i in vectors])
-    for i in range(2, len(vectors), m):
+    for i in tqdm(range(2, len(vectors), m)):
         true_lengths.append(np.linalg.norm(vectors[i: i + m]))
 
     true_lengths = np.array(true_lengths)
 
     assert_almost_equal(true_lengths, lengths, decimal=3)
+    print("Everything is alright!")
 
 
 if __name__ == '__main__':
