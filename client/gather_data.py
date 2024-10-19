@@ -1,23 +1,16 @@
 import argparse
-import numpy as np
 import subprocess
 import pickle
 import matplotlib.pyplot as plt
+from numpy.f2py.crackfortran import verbose
+
+import utils
 import os
 import re
 
 from tqdm import tqdm
 
 EXPERIMENT_RESULTS_PATH = '../experiment_results'
-
-
-def extract_duration(output_string):
-    match = re.search(r'Calculation_time:\s*([\d.]+)\s*microseconds', output_string)
-
-    if match:
-        return float(match.group(1))
-    else:
-        raise RuntimeError("No execution time found in output of client.py!")
 
 
 def main():
@@ -44,16 +37,19 @@ def main():
 
     for _ in tqdm(range(num_experiments)):
         result = subprocess.run(['python3', 'client.py', '127.0.0.1', '12345',
-                        'data.npy', 'lengths.npy', '-n', str(start_num_vectors), '-d', str(dim_vectors)],
-                       capture_output=True,
-                       text=True)
+                                 'data.h5', '-n', str(start_num_vectors), '-d', str(dim_vectors)],
+                                capture_output=True,
+                                text=True)
 
         if result.returncode != 0:
-            raise RuntimeError("Client finished with nonzero code!")
+            raise RuntimeError(result.stderr)
 
-        calculation_times[start_num_vectors * dim_vectors * 4 / 1024 / 1024] = extract_duration(result.stdout)
+        h5file, dataset = utils.load_data('data.h5', verbose=False)
 
+        calculation_times[start_num_vectors * dim_vectors * 4 / 1024 / 1024] = h5file.attrs['execution_time']
         start_num_vectors += step_num_vectors
+
+        h5file.close()
 
     print("Experiments finished!")
     print("Saving plot and duration records...")

@@ -1,3 +1,4 @@
+import h5py
 import numpy as np
 from tqdm import tqdm
 
@@ -6,24 +7,32 @@ CHUNK_SIZE = int(1e7)
 MAX_VALUE = int(1e6)
 
 
-def generate_random_data(data_path, num_vectors, dim_vectors):
-    print("Generating data...")
-    mmap_array = np.memmap(data_path, dtype="<i4", mode='w+', shape=num_vectors * dim_vectors + 2)
-    mmap_array[0] = num_vectors
-    mmap_array[1] = dim_vectors
+def generate_random_data(data_path, num_vectors, dim_vectors, verbose=True):
+    if verbose:
+        print("Generating data...")
 
-    total_numbers = num_vectors * dim_vectors
-    for i in tqdm(range(2, len(mmap_array), CHUNK_SIZE)):
-        mmap_array[i: i + min(CHUNK_SIZE, total_numbers)] = np.random.randint(-MAX_VALUE, MAX_VALUE,
-                                                                              size=min(CHUNK_SIZE, total_numbers))
-        total_numbers -= CHUNK_SIZE
+    h5file = h5py.File(data_path, 'w')
+    total_count = num_vectors * dim_vectors
+    suitable_chunk_size = min(CHUNK_SIZE, total_count)
 
-    return mmap_array
+    dataset = h5file.create_dataset("vectors", shape=(total_count,), dtype='<i4', chunks=suitable_chunk_size)
+    dataset.attrs['num_vectors'] = num_vectors
+    dataset.attrs['dim_vectors'] = dim_vectors
+
+    for chunk in tqdm(dataset.iter_chunks(), total=(num_vectors * dim_vectors // CHUNK_SIZE), disable=(not verbose)):
+        dataset[chunk] = np.random.randint(-MAX_VALUE, MAX_VALUE,
+                                           size=min(suitable_chunk_size, total_count))
+
+        total_count -= suitable_chunk_size
+
+    return h5file, dataset
 
 
-def load_data(data_path):
-    print("Loading data...")
-    data = np.memmap(data_path, dtype=np.int32, mode='r')
-    n, m = data[0], data[1]
+def load_data(data_path, verbose=True):
+    if verbose:
+        print("Loading data...")
 
-    return n, m, data
+    h5file = h5py.File(data_path, 'r+')
+    dataset = h5file['vectors']
+
+    return h5file, dataset
