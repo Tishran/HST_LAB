@@ -7,13 +7,13 @@ EXPERIMENT_RESULTS_PATH = '../experiment_results'
 
 def main():
     exp_dir_list = [file_name for file_name in os.listdir(EXPERIMENT_RESULTS_PATH) if file_name.endswith('.pkl')]
-    exp_dir_list.sort(key=lambda x: int(x.split('_')[1]))
+    exp_dir_list.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
     for file_name in exp_dir_list:
         with open(os.path.join(EXPERIMENT_RESULTS_PATH, file_name), 'rb') as f:
             calculation_times = pickle.load(f)
             plt.plot(np.array(list(calculation_times.keys())),
                      list(calculation_times.values()),
-                     label=f"{file_name.split('_')[1]} threads",
+                     label=f"{file_name.split('_')[1].split('.')[0]} processes",
                      linestyle='-',
                      marker='o')
 
@@ -23,7 +23,7 @@ def main():
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
     plt.legend()
 
-    plt.savefig(f'{os.path.join(EXPERIMENT_RESULTS_PATH, 'comparison_plot')}.png', format='png', dpi=600)
+    plt.savefig(f'{os.path.join(EXPERIMENT_RESULTS_PATH, 'comparison_plot_MPI')}.png', format='png', dpi=600)
     print(f'Comparison plot saved successfully')
 
 

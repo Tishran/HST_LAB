@@ -21,7 +21,6 @@ int H5FileReader::getIntAttr(const H5Object &object, const std::string &attrName
 
     int attrVal = 0;
     attr.read(attr.getDataType(), &attrVal);
-    attr.close();
 
     return attrVal;
 }
@@ -47,5 +46,4 @@ void H5FileReader::setAttr(const H5Object &h5object, const std::string &attrName
 
     Attribute attr = h5object.createAttribute(attrName, PredType::NATIVE_DOUBLE, attrDataSpace);
     attr.write(PredType::NATIVE_DOUBLE, &data);
-    attr.close();
 }

@@ -2,15 +2,19 @@ import argparse
 import subprocess
 import pickle
 import matplotlib.pyplot as plt
-from numpy.f2py.crackfortran import verbose
 
 import utils
 import os
-import re
 
 from tqdm import tqdm
 
 EXPERIMENT_RESULTS_PATH = '../experiment_results'
+TCP_RUN = ['python3', '../client/client.py', '127.0.0.1', '12345', 'data.h5']
+NO_TCP_RUN = ['python3', '../client/client.py', 'data.h5']
+
+# change -np value as you wish
+N_PROC_VAL = 16
+MPI_RUN = f'/usr/local/bin/mpirun -np {N_PROC_VAL} /home/tishran/CLionProjects/HST_LAB/LAB_3/cmake-build-debug/LAB_3 data.h5'.split()
 
 
 def main():
@@ -21,6 +25,7 @@ def main():
     parser.add_argument('num_experiments', type=str)
     parser.add_argument('plot_name', type=str)
     parser.add_argument('pickle_name', type=str)
+    parser.add_argument("--mpi", action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     start_num_vectors = int(args.start_num_vectors)
@@ -29,6 +34,7 @@ def main():
     num_experiments = int(args.num_experiments)
     plot_name = args.plot_name
     pickle_name = args.pickle_name
+    mpi = bool(args.mpi)
 
     plot_name = os.path.join(EXPERIMENT_RESULTS_PATH, plot_name)
     pickle_name = os.path.join(EXPERIMENT_RESULTS_PATH, pickle_name)
@@ -36,20 +42,34 @@ def main():
     calculation_times = dict()  # num vectors to time
 
     for _ in tqdm(range(num_experiments)):
-        result = subprocess.run(['python3', 'client.py', '127.0.0.1', '12345',
-                                 'data.h5', '-n', str(start_num_vectors), '-d', str(dim_vectors)],
-                                capture_output=True,
-                                text=True)
+        curr_size = start_num_vectors * dim_vectors * 4 / 1024 / 1024
+        calculation_times[curr_size] = 0
 
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr)
+        for i in range(10):
+            result = subprocess.run(
+                (NO_TCP_RUN if mpi else TCP_RUN) + ['-n', str(start_num_vectors), '-d', str(dim_vectors)],
+                capture_output=True,
+                text=True
+            )
 
-        h5file, dataset = utils.load_data('data.h5', verbose=False)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
 
-        calculation_times[start_num_vectors * dim_vectors * 4 / 1024 / 1024] = h5file.attrs['execution_time']
+            if mpi:
+                result = subprocess.run(MPI_RUN,
+                                        capture_output=True,
+                                        text=True
+                                        )
+
+                if result.returncode != 0:
+                    raise RuntimeError(result.stderr)
+
+            h5file, dataset = utils.load_data('data.h5', verbose=False)
+            calculation_times[curr_size] += h5file.attrs['execution_time']
+            h5file.close()
+
+        calculation_times[curr_size] /= 10
         start_num_vectors += step_num_vectors
-
-        h5file.close()
 
     print("Experiments finished!")
     print("Saving plot and duration records...")
@@ -63,12 +83,15 @@ def main():
     plt.xlabel('Data size, MB')
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
 
-    plt.savefig(f'{plot_name}.png', format='png', dpi=600)
-    print(f'Plot saved successfully to {plot_name}.png')
+    png_name = f'{plot_name}_{N_PROC_VAL}.png'
+    pkl_name = f"{pickle_name}_{N_PROC_VAL}.pkl"
 
-    with open(f"{pickle_name}.pkl", 'wb') as fp:
+    plt.savefig(png_name, format='png', dpi=600)
+    print(f'Plot saved successfully to {png_name}')
+
+    with open(pkl_name, 'wb') as fp:
         pickle.dump(calculation_times, fp)
-        print(f'Durations records saved successfully to {pickle_name}.pkl')
+        print(f'Durations records saved successfully to {pkl_name}')
 
 
 if __name__ == "__main__":
