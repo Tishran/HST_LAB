@@ -1,6 +1,8 @@
 *.npy
 *.pkl
 *.h5
+
+data_files
 cmake-build-debug
 .idea
 lab1_plot

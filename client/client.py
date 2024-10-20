@@ -2,11 +2,14 @@ import time
 import socket
 import struct
 import numpy as np
-
 import utils
 import argparse
 
 from tqdm import tqdm
+
+
+def check_host_port_validity(host, port):
+    return host and 1024 <= port <= 49151
 
 
 class Client:
@@ -68,11 +71,27 @@ class Client:
         return result, execution_time
 
 
+def start_tcp_client(host, port, h5file, dataset, num_vectors, dim_vectors):
+    client = Client(host, port)
+    client.establish_connection()
+
+    lengths, execution_time = client.communicate(dataset, num_vectors, dim_vectors)
+    assert len(lengths) == num_vectors
+
+    if "lengths" not in h5file:
+        h5file.create_dataset("lengths", shape=lengths.shape, data=lengths)
+
+    h5file.attrs["execution_time"] = execution_time
+
+    print(f'Calculation_time: {execution_time} microseconds')
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('host', type=str, help='Input host')
-    parser.add_argument('port', type=int, help='Input port')
     parser.add_argument('data_path', type=str, help='Input file path')
+    parser.add_argument('-host', '--host', type=str, help='Input host', default="")
+    parser.add_argument('-port', '--port', type=int, help='Input port', default=0)
     parser.add_argument('-n', '--num_vectors', type=int, help='Input number of vectors', default=0)
     parser.add_argument('-d', '--dim_vectors', type=int, help='Input dimension of vectors', default=0)
 
@@ -83,28 +102,22 @@ def main():
     num_vectors = int(args.num_vectors)
     dim_vectors = int(args.dim_vectors)
 
-    if num_vectors == 0:
+    if num_vectors == 0 and dim_vectors == 0 and check_host_port_validity(host, port):
         h5file, dataset = utils.load_data(data_path)
         num_vectors = dataset.attrs['num_vectors']
         dim_vectors = dataset.attrs['dim_vectors']
     else:
+        if num_vectors == 0 or dim_vectors == 0:
+            raise RuntimeError("Wrong number of vectors or dimension.")
+
         h5file, dataset = utils.generate_random_data(data_path, num_vectors, dim_vectors)
 
-    client = Client(host, port)
-    client.establish_connection()
+    if check_host_port_validity(host, port):
+        start_tcp_client(host, port, h5file, dataset, num_vectors, dim_vectors)
 
-    lengths, execution_time = client.communicate(dataset, num_vectors, dim_vectors)
-    assert len(lengths) == num_vectors
-
-    # maybe we dont need chunks=True
-    if "lengths" not in h5file:
-        h5file.create_dataset("lengths", shape=lengths.shape, data=lengths)
-
-    h5file.attrs["execution_time"] = execution_time
     h5file.close()
 
-    print(f'Calculation_time: {execution_time} microseconds')
-    print()
+    print("All done!")
 
 
 if __name__ == "__main__":
