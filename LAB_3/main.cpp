@@ -51,38 +51,38 @@ int main(int argc, char *argv[]) {
         readVectorsFromH5File(h5FileReader, data, numVectors, dimVectors);
     }
 
+    std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
+
     MPI_Bcast(&numVectors, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
     MPI_Bcast(&dimVectors, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 
-    int vectorsPerProcess = numVectors / worldSize;
     int remainingVectors = numVectors % worldSize;
+    int vectorsPerProcess = numVectors / worldSize;
 
-    int numLocalVectors = vectorsPerProcess + (rank <= remainingVectors && rank != 0 ? 1 : 0);
+    int numLocalVectors = vectorsPerProcess + (rank < remainingVectors && rank != 0 ? 1 : 0);
     std::vector<int> localVectors(numLocalVectors * dimVectors);
-    std::chrono::steady_clock::time_point startTime;
+
+    std::vector<int> sendCounts(worldSize, vectorsPerProcess * dimVectors);
+    std::vector<int> displacements(worldSize, 0);
+
+    for (int i = 0; i < remainingVectors; ++i) {
+        sendCounts[i] += dimVectors;
+    }
+
+    for (int i = 1; i < worldSize; ++i) {
+        displacements[i] = displacements[i - 1] + sendCounts[i - 1];
+    }
 
     if (rank == 0) {
         std::cout << "Start calculation..." << std::endl;
 
-        MPI_Scatter(data.data(), vectorsPerProcess * dimVectors, MPI_INT,
-                    localVectors.data(), vectorsPerProcess * dimVectors, MPI_INT,
-                    0, MPI_COMM_WORLD);
-
-        for (int i = 0; i < remainingVectors; ++i) {
-            MPI_Send(&(data[(vectorsPerProcess * worldSize + i) * dimVectors]), dimVectors,
-                     MPI_INT, i + 1, 0, MPI_COMM_WORLD);
-        }
-
-        startTime = std::chrono::steady_clock::now();
+        MPI_Scatterv(data.data(), sendCounts.data(), displacements.data(), MPI_INT,
+                     localVectors.data(), localVectors.size(), MPI_INT,
+                     ROOT, MPI_COMM_WORLD);
     } else {
-        MPI_Scatter(nullptr, 0, MPI_DATATYPE_NULL,
-                    localVectors.data(), vectorsPerProcess * dimVectors, MPI_INT,
-                    ROOT, MPI_COMM_WORLD);
-
-        if (rank <= remainingVectors) {
-            MPI_Recv((localVectors.data() + vectorsPerProcess * dimVectors), dimVectors, MPI_INT,
-                     ROOT, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
+        MPI_Scatterv(nullptr, nullptr, nullptr, MPI_DATATYPE_NULL,
+                     localVectors.data(), localVectors.size(), MPI_INT,
+                     ROOT, MPI_COMM_WORLD);
     }
 
     data.clear();
@@ -95,21 +95,23 @@ int main(int argc, char *argv[]) {
         lengths.resize(numVectors);
     }
 
-    MPI_Gather(localLengths.data(), vectorsPerProcess, MPI_DOUBLE,
-               lengths.data(), vectorsPerProcess, MPI_DOUBLE,
-               ROOT, MPI_COMM_WORLD);
+    sendCounts.clear();
+    displacements.clear();
 
-    if (rank == 0) {
-        for (int i = 0; i < remainingVectors; ++i) {
-            MPI_Recv(&(lengths[vectorsPerProcess * worldSize + i]), 1, MPI_DOUBLE,
-                     i + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-    } else {
-        if (rank <= remainingVectors) {
-            MPI_Send(&(localLengths.back()), 1,
-                     MPI_DOUBLE, ROOT, 0, MPI_COMM_WORLD);
-        }
+    sendCounts.resize(worldSize, vectorsPerProcess);
+    displacements.resize(worldSize, 0);
+
+    for (int i = 0; i < remainingVectors; ++i) {
+        sendCounts[i] += 1;
     }
+
+    for (int i = 1; i < worldSize; ++i) {
+        displacements[i] = displacements[i - 1] + sendCounts[i - 1];
+    }
+
+    MPI_Gatherv(localLengths.data(), numLocalVectors, MPI_DOUBLE,
+                lengths.data(), sendCounts.data(), displacements.data(), MPI_DOUBLE,
+                ROOT, MPI_COMM_WORLD);
 
     localLengths.clear();
 

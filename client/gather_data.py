@@ -13,7 +13,8 @@ TCP_RUN = ['python3', '../client/client.py', '127.0.0.1', '12345', 'data.h5']
 NO_TCP_RUN = ['python3', '../client/client.py', 'data.h5']
 
 # change -np value as you wish
-N_PROC_VAL = 16
+N_PROC_VAL = 20
+N_ROUNDS = 5
 MPI_RUN = f'/usr/local/bin/mpirun -np {N_PROC_VAL} /home/tishran/CLionProjects/HST_LAB/LAB_3/cmake-build-debug/LAB_3 data.h5'.split()
 
 
@@ -45,7 +46,7 @@ def main():
         curr_size = start_num_vectors * dim_vectors * 4 / 1024 / 1024
         calculation_times[curr_size] = 0
 
-        for i in range(10):
+        for i in range(N_ROUNDS):
             result = subprocess.run(
                 (NO_TCP_RUN if mpi else TCP_RUN) + ['-n', str(start_num_vectors), '-d', str(dim_vectors)],
                 capture_output=True,
